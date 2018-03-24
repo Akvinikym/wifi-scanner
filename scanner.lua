@@ -8,7 +8,6 @@ local scanner = {}
 TcpdumpCommand = "sudo tcpdump -i en1 -I -t -e | grep 'BSSID' | grep 'signal'"
 
 local function parseTcpdumpString(tcpdumpString)
-    -- can be rewritten as string.match()
     timestamp = string.sub(tcpdumpString, 0, 10)
     signalPos = string.find(tcpdumpString, 'signal')
     signal = string.sub(tcpdumpString, signalPos - 7, signalPos - 5)
@@ -21,15 +20,17 @@ end
 -- PUBLIC FEATURES
 
 -- scan for n seconds, writing the results into provided file, then terminate
-function scanner.performScan(scanFilePath, scanDuration)
+function scanner.performScan(scanFilePath, desiredEntriesAmount)
     scanFile = io.open(scanFilePath, 'w+')
     fileHandler = assert(io.popen(TcpdumpCommand, 'r'))
 
-    initialTime = os.clock()
-    while (os.clock() - initialTime) < scanDuration do
+    currentEntriesAmount = 0
+    while currentEntriesAmount < desiredEntriesAmount do
+        print(currentEntriesAmount, desiredEntriesAmount)
         currentLine = fileHandler:read('*l')
         if currentLine then
             scanFile:write(parseTcpdumpString(currentLine))
+            currentEntriesAmount = currentEntriesAmount + 1
         end
     end
 

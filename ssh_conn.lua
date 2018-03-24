@@ -2,31 +2,68 @@
 -- module with all features related to ssh connection with a server
 local ssh_conn = {}
 
+config = require 'config'
 
 -- PRIVATE FEATURES
 
-ServerAddress = "root@192.168.0.1"
-PathToSSHKey = "~/.ssh/id_rsa.pub"
-KeyPairGenCommand = "ssh-keygen -t rsa"
-CopyKeyToServerCommand = "ssh-copy-id"
-CopyFileToServerCommand = "scp"
 
-local function serverConnectionIsUp()
-    -- TODO: extend functionality, so it'll check conenction for a specific user
+local ServerAddress = config.ServerAddress
+local PathToSSHKey = config.PathToSSHKey
+local KeyPairGenCommand = "ssh-keygen -t rsa"
+local CopyKeyToServerCommand = "ssh-copy-id"
 
-    response = assert(io.popen("ssh -q" .. ServerAddress .. "exit"))
-    if response:read('*n') == 255 then
-        response:close()
-        return true
-    else
-        response:close()
-        return false   
-    end
+local function getTransferFileCommand(localPath, remotePath)
+    return string.format("scp -i %s %s %s:%s",
+        PathToSSHKey, localPath, ServerAddress, remotePath)
 end
 
+-- returns string, which is to be executed to check, if a specific file exists on a remote server
+local function getFileExistanceCheckerCommand(fileName)
+    return string.format('ssh -i %s %s test -f "%s" && echo "yes" || echo "no";',
+        PathToSSHKey, ServerAddress, fileName)
+end
+
+-- returns string, which is to be executed to remove file from a remote file
+local function getRemoveFileCommand(fileName)
+    return string.format('ssh -i %s %s "rm %s"', PathToSSHKey, ServerAddress, fileName)
+end
+
+-- check, if file with such path exists on the remote server
+local function fileExistsOnRemote(remotePath)
+    local command = getFileExistanceCheckerCommand(remotePath)
+    local commandHandler = assert(io.popen(command, "r"))
+    return commandHandler:read("*l") == "yes"
+end
+
+-- remove the file with such path from the remote server
+local function removeFileFromRemote(remotePath)
+    local command = getRemoveFileCommand(remotePath)
+    os.execute(command)
+end
+
+-- check, if the connection with a remote server is up
+local function serverConnectionIsUp()
+    -- place a sample file and read it in order to check, if connection works; then remove
+    local randomNum = math.random(1, 1000)
+    local fileName = randomNum .. "sample.txt"
+    local probeFile = io.open(fileName, "w+")
+    probeFile:write(randomNum)
+    probeFile:close()
+
+    ssh_conn.transferFile(fileName, "~/" .. fileName)
+    local connIsUp = fileExistsOnRemote("~/" .. fileName)
+    if connIsUp then
+        removeFileFromRemote("~/" .. fileName)
+    end
+    os.execute("rm " .. fileName)
+
+    return connIsUp
+end
+
+-- check, if ssh key pair exists on a local machine
 local function keyPairExists()
     local keyFile = io.open(PathToSSHKey, "r")
-    if (key == nil) then
+    if not keyFile then
         return false
     else
         io.close(keyFile)
@@ -50,6 +87,8 @@ end
 
 -- PUBLIC FEATURES
 
+
+-- establich connection with a remote server by exchanging key pair, if needed
 function ssh_conn.establishConnection()
     -- check, if the key pair exists and generate-copy it, if not
     if not keyPairExists() then
@@ -62,21 +101,14 @@ function ssh_conn.establishConnection()
     -- check, if connection is up
     if not serverConnectionIsUp() then
         print("Error: server is down!")
-        os.close()
+        os.exit()
     end
 end
 
+-- transfer file to a remote server
 function ssh_conn.transferFile(localPath, remotePath)
-    if not serverConnectionIsUp then
-        print("Error: cannot transfer the file to remote server!")
-        return false
-    end
-    
-    os.execute("%s %s %s:%s",
-        CopyFileToServerCommand, localPath, ServerAddress, remotePath)
-    return true
-
-    -- TODO: check, if file transfer is sucessfull
+    os.execute(getTransferFileCommand(localPath, remotePath))
+    return fileExistsOnRemote(remotePath)
 end
 
 return ssh_conn
