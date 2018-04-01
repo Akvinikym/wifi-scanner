@@ -2,10 +2,22 @@
 -- module with all features, related to network scanning
 local scanner = {}
 
+config = require 'config'
+
 
 -- PRIVATE FEATURES
 
-TcpdumpCommand = "sudo tcpdump -i en1 -I -t -e | grep 'BSSID' | grep 'signal'"
+--TcpdumpCommand = ""
+--if config.SudoIsNeeded then
+--    TcpdumpCommand = string.format(
+--        "sudo tcpdump -i %s -I -t -e | grep 'BSSID' | grep 'signal'", config.WirelessInterface)
+--else
+--    TcpdumpCommand = string.format(
+--        "tcpdump -i %s -I -t -e | grep 'BSSID' | grep 'signal'", config.WirelessInterface)
+--end
+
+TcpdumpCommand = string.format("%s tcpdump -i %s %s -t -e | grep 'BSSID' | grep 'signal'", 
+    config.SudoIsNeeded and "sudo" or "", config.WirelessInterface, config.MonitorOptionIsNeeded and "-I" or "")
 
 local function parseTcpdumpString(tcpdumpString)
     timestamp = string.sub(tcpdumpString, 0, 10)
@@ -21,6 +33,7 @@ end
 
 -- scan for n seconds, writing the results into provided file, then terminate
 function scanner.performScan(scanFilePath, desiredEntriesAmount)
+    print("OK: starting scanning")
     scanFile = io.open(scanFilePath, 'w+')
     fileHandler = assert(io.popen(TcpdumpCommand, 'r'))
 
@@ -36,6 +49,7 @@ function scanner.performScan(scanFilePath, desiredEntriesAmount)
 
     fileHandler:close()
     scanFile:close()
+    print("OK: scan ended")
 end
 
 return scanner
