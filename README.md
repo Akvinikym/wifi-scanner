@@ -9,3 +9,10 @@ It consists of several files:
 * scanner.lua - contains code for the scanner itself
 * ssh_conn.lua - set of necessary features to establish connection with a remote server and send files to it
 * config_templ.lua - template for a config file; how-to is placed inside
+
+## Requirements
+* machine's wireless network card must support monitor mode
+* to use on OpenWRT OS you must:
+  * install ssh-keygen utility - comes with openssh-keygen packet
+  * install openssh-client packet
+  * configure your network card's monitor interface as the following article suggests: https://wiki.openwrt.org/doc/howto/wireless.tool.aircrack-ng
