@@ -93,7 +93,7 @@ end
 -- PUBLIC FEATURES
 
 
--- establich connection with a remote server by exchanging key pair, if needed
+-- establish connection with a remote server by exchanging key pair, if needed
 function ssh_conn.establishConnection()
     -- check, if the key pair exists and generate-copy it, if not
     if not keyPairExists() then

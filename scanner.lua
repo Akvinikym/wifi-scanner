@@ -7,48 +7,50 @@ config = require 'config'
 
 -- PRIVATE FEATURES
 
---TcpdumpCommand = ""
---if config.SudoIsNeeded then
---    TcpdumpCommand = string.format(
---        "sudo tcpdump -i %s -I -t -e | grep 'BSSID' | grep 'signal'", config.WirelessInterface)
---else
---    TcpdumpCommand = string.format(
---        "tcpdump -i %s -I -t -e | grep 'BSSID' | grep 'signal'", config.WirelessInterface)
---end
-
-TcpdumpCommand = string.format("%s tcpdump -i %s %s -t -e | grep 'BSSID' | grep 'signal'", 
-    config.SudoIsNeeded and "sudo" or "", config.WirelessInterface, config.MonitorOptionIsNeeded and "-I" or "")
+TcpdumpCommand = string.format("%s tcpdump -i %s -I -t -e | grep 'SA' | grep 'signal'", 
+    config.SudoIsNeeded and "sudo" or "", config.WirelessInterface)
 
 local function parseTcpdumpString(tcpdumpString)
     timestamp = string.sub(tcpdumpString, 0, 10)
     signalPos = string.find(tcpdumpString, 'signal')
     signal = string.sub(tcpdumpString, signalPos - 7, signalPos - 5)
-    macPos = string.find(tcpdumpString, 'BSSID:')
-    mac = string.sub(tcpdumpString, macPos + 6, macPos + 22)
+    macPos = string.find(tcpdumpString, 'SA:')
+    mac = string.sub(tcpdumpString, macPos + 6, macPos + 20)
     return string.format("%s %s %s\n", timestamp, mac, signal)
 end
 
 
 -- PUBLIC FEATURES
 
--- scan for n seconds, writing the results into provided file, then terminate
-function scanner.performScan(scanFilePath, desiredEntriesAmount)
+-- scan for n entries, writing the results into provided file, then terminate
+function scanner.performScan(writeToFileMode, scanFilePath, desiredEntriesAmount)
     print("OK: starting scanning")
-    scanFile = io.open(scanFilePath, 'w+')
-    fileHandler = assert(io.popen(TcpdumpCommand, 'r'))
 
+    scanResults = assert(io.popen(TcpdumpCommand, 'r'))
     currentEntriesAmount = 0
-    while currentEntriesAmount < desiredEntriesAmount do
-        print(currentEntriesAmount, desiredEntriesAmount)
-        currentLine = fileHandler:read('*l')
-        if currentLine then
-            scanFile:write(parseTcpdumpString(currentLine))
-            currentEntriesAmount = currentEntriesAmount + 1
+
+    if writeToFileMode then
+        scanFile = io.open(scanFilePath, 'w+')
+        for i = 1, desiredEntriesAmount do
+            print(currentEntriesAmount, desiredEntriesAmount)
+            currentLine = scanResults:read('*l')
+            if currentLine then
+                scanFile:write(parseTcpdumpString(currentLine))
+                currentEntriesAmount = currentEntriesAmount + 1
+            end
+        end
+        scanFile:close()
+    else
+        for i = 1, desiredEntriesAmount do
+            currentLine = scanResults:read('*l')
+            if currentLine then
+                print(parseTcpdumpString(currentLine))
+                currentEntriesAmount = currentEntriesAmount + 1
+            end
         end
     end
 
-    fileHandler:close()
-    scanFile:close()
+    scanResults:close()
     print("OK: scan ended")
 end
 

@@ -6,9 +6,6 @@ local config_templ = {}
 -- from which interface scan should be performed
 config_templ.WirelessInterface = ""
 
--- if your interface is configured to be in monitor mode by default, set it to false
-config_templ.MonitorOptionIsNeeded = true
-
 -- address of remote server, to which results of scan will be uploaded
 config_templ.ServerAddress = ""
 
